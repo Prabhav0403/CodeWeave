@@ -12,12 +12,17 @@ const connectionString = "mongodb+srv://prabhavsrivastava0403:iaeM2l51Vpr545S8@c
 
 const app = express();
 const server = http.createServer(app);
+
+// --- CRITICAL FIX for DEPLOYMENT ---
+// This tells our server to allow connections from our live frontend URL.
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "https://codeweave-c5y0.onrender.com"], // Allow both local and deployed frontend
     methods: ["GET", "POST"]
   }
 });
+// ------------------------------------
+
 const userColors = ['#ff6b9d', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff8a5c', '#6a7dff'];
 
 const client = new MongoClient(connectionString);
@@ -84,23 +89,6 @@ io.on('connection', (socket) => {
       const safeFilePath = filePath.replace(/\./g, '_');
       const code = room?.code?.[safeFilePath] || `// Welcome to ${filePath}\n`;
       socket.emit('codeUpdate', { filePath, newCode: code });
-    }
-  });
-
-  socket.on('deleteFile', async (filePath) => {
-    const { roomId } = socket.data;
-    if (roomId) {
-      const safeFilePath = filePath.replace(/\./g, '_');
-      await roomsCollection.updateOne({ _id: roomId }, { $unset: { [`code.${safeFilePath}`]: "" } });
-    }
-  });
-
-  socket.on('renameFile', async ({ oldPath, newPath }) => {
-    const { roomId } = socket.data;
-    if (roomId) {
-      const safeOldPath = oldPath.replace(/\./g, '_');
-      const safeNewPath = newPath.replace(/\./g, '_');
-      await roomsCollection.updateOne({ _id: roomId }, { $rename: { [`code.${safeOldPath}`]: `code.${safeNewPath}` } });
     }
   });
   
