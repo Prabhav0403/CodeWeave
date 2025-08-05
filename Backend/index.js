@@ -13,15 +13,12 @@ const connectionString = "mongodb+srv://prabhavsrivastava0403:iaeM2l51Vpr545S8@c
 const app = express();
 const server = http.createServer(app);
 
-// --- CRITICAL FIX for DEPLOYMENT ---
-// This tells our server to allow connections from our live frontend URL.
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "https://codeweave-c5y0.onrender.com"], // Allow both local and deployed frontend
+    origin: ["http://localhost:3000", "https://codeweave-c5y0.onrender.com"],
     methods: ["GET", "POST"]
   }
 });
-// ------------------------------------
 
 const userColors = ['#ff6b9d', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff8a5c', '#6a7dff'];
 
@@ -40,6 +37,7 @@ async function connectToDb() {
 }
 
 io.on('connection', (socket) => {
+  // All your existing socket event handlers (joinRoom, codeChange, etc.) go here...
   socket.on('joinRoom', async (roomId, username = 'Anonymous') => {
     socket.join(roomId);
     socket.data.roomId = roomId;
@@ -177,7 +175,11 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3001;
+// --- CRITICAL DEPLOYMENT FIX ---
+// This tells our server to use the port Render provides, with a fallback to 3001 for local development.
+const PORT = process.env.PORT || 3001;
+// --------------------------------
+
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
