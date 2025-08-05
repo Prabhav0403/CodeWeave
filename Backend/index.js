@@ -15,13 +15,17 @@ const server = http.createServer(app);
 
 const allowedOrigins = ["http://localhost:3000", "https://codeweave-c5y0.onrender.com"];
 
+// --- CRITICAL FIX for MOBILE & DEPLOYMENT STABILITY ---
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST"]
   },
+  // This tells the server to prioritize the WebSocket protocol,
+  // which is more reliable for real-time connections, especially on mobile.
   transports: ['websocket', 'polling'] 
 });
+// ----------------------------------------------------
 
 const userColors = ['#ff6b9d', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff8a5c', '#6a7dff'];
 
@@ -89,23 +93,6 @@ io.on('connection', (socket) => {
       const safeFilePath = filePath.replace(/\./g, '_');
       const code = room?.code?.[safeFilePath] || `// Welcome to ${filePath}\n`;
       socket.emit('codeUpdate', { filePath, newCode: code });
-    }
-  });
-
-  socket.on('deleteFile', async (filePath) => {
-    const { roomId } = socket.data;
-    if (roomId) {
-      const safeFilePath = filePath.replace(/\./g, '_');
-      await roomsCollection.updateOne({ _id: roomId }, { $unset: { [`code.${safeFilePath}`]: "" } });
-    }
-  });
-
-  socket.on('renameFile', async ({ oldPath, newPath }) => {
-    const { roomId } = socket.data;
-    if (roomId) {
-      const safeOldPath = oldPath.replace(/\./g, '_');
-      const safeNewPath = newPath.replace(/\./g, '_');
-      await roomsCollection.updateOne({ _id: roomId }, { $rename: { [`code.${safeOldPath}`]: `code.${safeNewPath}` } });
     }
   });
   
