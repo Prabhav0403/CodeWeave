@@ -12,11 +12,11 @@ import { FileExplorer } from '@/components/editor/FileExplorer';
 interface TerminalLine { type: 'command' | 'output' | 'error'; content: string; }
 interface CursorData { userId: string; userName: string; line: number; column: number; color: string; filePath: string; }
 
-// --- CRITICAL DEPLOYMENT FIX with DEBUGGING ---
-const VITE_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-console.log("Attempting to connect to backend at:", VITE_BACKEND_URL); // This will show in your browser console
-const socket: Socket = io(VITE_BACKEND_URL);
-// --------------------------------
+// --- FINAL DEPLOYMENT FIX ---
+// This tells the socket to connect to the same host that served the page.
+// It will automatically work for both localhost and your live Render URL.
+const socket: Socket = io();
+// -----------------------------
 
 const languageMap: { [key: string]: string } = {
   js: 'javascript', ts: 'typescript', html: 'html', css: 'css', py: 'python', java: 'java', json: 'json', md: 'markdown',
