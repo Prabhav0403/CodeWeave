@@ -12,10 +12,9 @@ import { FileExplorer } from '@/components/editor/FileExplorer';
 interface TerminalLine { type: 'command' | 'output' | 'error'; content: string; }
 interface CursorData { userId: string; userName: string; line: number; column: number; color: string; filePath: string; }
 
-// --- CRITICAL DEPLOYMENT FIX ---
-// This code makes the connection URL dynamic. It will use your Render URL
-// when deployed and fallback to localhost for local development.
+// --- CRITICAL DEPLOYMENT FIX with DEBUGGING ---
 const VITE_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+console.log("Attempting to connect to backend at:", VITE_BACKEND_URL); // This will show in your browser console
 const socket: Socket = io(VITE_BACKEND_URL);
 // --------------------------------
 
