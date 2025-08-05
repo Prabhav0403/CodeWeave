@@ -12,7 +12,9 @@ import { FileExplorer } from '@/components/editor/FileExplorer';
 interface TerminalLine { type: 'command' | 'output' | 'error'; content: string; }
 interface CursorData { userId: string; userName: string; line: number; column: number; color: string; filePath: string; }
 
-const socket: Socket = io('http://localhost:3001');
+const VITE_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const socket: Socket = io(VITE_BACKEND_URL);
+
 
 const languageMap: { [key: string]: string } = {
   js: 'javascript', ts: 'typescript', html: 'html', css: 'css', py: 'python', java: 'java', json: 'json', md: 'markdown',
