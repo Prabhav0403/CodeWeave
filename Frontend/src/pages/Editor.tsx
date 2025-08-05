@@ -12,11 +12,8 @@ import { FileExplorer } from '@/components/editor/FileExplorer';
 interface TerminalLine { type: 'command' | 'output' | 'error'; content: string; }
 interface CursorData { userId: string; userName: string; line: number; column: number; color: string; filePath: string; }
 
-// --- FINAL DEPLOYMENT FIX ---
-// This tells the socket to connect to the same host that served the page.
-// It will automatically work for both localhost and your live Render URL.
-const socket: Socket = io();
-// -----------------------------
+const VITE_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const socket: Socket = io(VITE_BACKEND_URL);
 
 const languageMap: { [key: string]: string } = {
   js: 'javascript', ts: 'typescript', html: 'html', css: 'css', py: 'python', java: 'java', json: 'json', md: 'markdown',
@@ -28,6 +25,7 @@ const Editor = () => {
 
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [openFiles, setOpenFiles] = useState<{ [key: string]: string }>({});
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [language, setLanguage] = useState<string>('plaintext');
   const [terminalOutputs, setTerminalOutputs] = useState<{ [key: string]: TerminalLine[] }>({});
   const [collaborators, setCollaborators] = useState<string[]>([]);
@@ -77,12 +75,41 @@ const Editor = () => {
   }, [roomId, location.state]);
 
   const handleFileSelect = (filePath: string) => {
+    if (!openTabs.includes(filePath)) {
+      setOpenTabs(prev => [...prev, filePath]);
+    }
     setActiveFile(filePath);
     const extension = filePath.split('.').pop() || '';
     setLanguage(languageMap[extension] || 'plaintext');
     if (openFiles[filePath] === undefined) {
       socket.emit('getCode', filePath);
     }
+  };
+
+  const handleTabSelect = (filePath: string) => {
+    setActiveFile(filePath);
+    const extension = filePath.split('.').pop() || '';
+    setLanguage(languageMap[extension] || 'plaintext');
+  };
+
+  const handleTabClose = (filePathToClose: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const newTabs = openTabs.filter(p => p !== filePathToClose);
+    setOpenTabs(newTabs);
+
+    if (activeFile === filePathToClose) {
+      const newActiveFile = newTabs[newTabs.length - 1] || null;
+      setActiveFile(newActiveFile);
+    }
+  };
+
+  const handleFileDelete = (filePath: string) => {
+    handleTabClose(filePath, { stopPropagation: () => {} } as React.MouseEvent);
+    setOpenFiles(prev => {
+      const newOpenFiles = { ...prev };
+      delete newOpenFiles[filePath];
+      return newOpenFiles;
+    });
   };
   
   const handleCodeChange = (newCode: string) => {
@@ -169,7 +196,7 @@ const Editor = () => {
             <button onClick={() => setActivePanel('collaboration')} className={`px-4 py-2 text-sm ${activePanel === 'collaboration' ? 'bg-background' : ''}`}>Team</button>
           </div>
           <div style={{ display: activePanel === 'files' ? 'block' : 'none' }} className="h-full">
-            <FileExplorer onFileSelect={handleFileSelect} activeFile={activeFile} socket={socket} />
+            <FileExplorer onFileSelect={handleFileSelect} activeFile={activeFile} socket={socket} onFileDelete={handleFileDelete} />
           </div>
           <div style={{ display: activePanel === 'collaboration' ? 'block' : 'none' }} className="h-full">
             <CollaborationPanel users={collaborators} />
@@ -178,7 +205,7 @@ const Editor = () => {
         
         <div className="flex-1 flex flex-col">
           <div className="flex-1 min-h-0">
-            {activeFile ? (
+            {openTabs.length > 0 && activeFile ? (
               <EditorPane
                 key={activeFile}
                 code={openFiles[activeFile] || ''}
@@ -186,11 +213,15 @@ const Editor = () => {
                 language={language}
                 onCodeChange={handleCodeChange}
                 onCursorChange={handleCursorChange}
-                onLanguageChange={handleLanguageChange}
+                openTabs={openTabs}
+                activeFile={activeFile}
+                onTabSelect={handleTabSelect}
+                onTabClose={handleTabClose}
+                onLanguageChange={handleLanguageChange} // This prop is now correctly passed
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                <p>Select a file or create a new one to begin.</p>
+                <p>Create a file to begin.</p>
               </div>
             )}
           </div>

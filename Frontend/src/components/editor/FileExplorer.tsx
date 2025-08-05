@@ -19,6 +19,7 @@ interface FileExplorerProps {
   onFileSelect: (filePath: string) => void;
   activeFile: string | null;
   socket: Socket;
+  onFileDelete: (filePath: string) => void;
 }
 
 const NodeComponent = ({ node, depth, onFileSelect, activeFile, handleContextMenu, moveNode, toggleFolder }: any) => {
@@ -65,7 +66,7 @@ const NodeComponent = ({ node, depth, onFileSelect, activeFile, handleContextMen
   );
 };
 
-export const FileExplorer = ({ onFileSelect, activeFile, socket }: FileExplorerProps) => {
+export const FileExplorer = ({ onFileSelect, activeFile, socket, onFileDelete }: FileExplorerProps) => {
   const [fileStructure, setFileStructure] = useState<FileNode[]>([]);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, path: string | null } | null>(null);
 
@@ -129,6 +130,7 @@ export const FileExplorer = ({ onFileSelect, activeFile, socket }: FileExplorerP
       const newFiles = recursiveMap(fileStructure, node => node.path === path ? null : node);
       updateAndEmitFiles(newFiles);
       socket.emit('deleteFile', path);
+      onFileDelete(path);
     }
     setContextMenu(null);
   };

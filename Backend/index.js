@@ -15,16 +15,13 @@ const server = http.createServer(app);
 
 const allowedOrigins = ["http://localhost:3000", "https://codeweave-c5y0.onrender.com"];
 
-// --- CRITICAL FIX for REAL-TIME on DEPLOYMENT ---
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
   },
-  // Prioritize WebSockets for a more stable connection on Render
   transports: ['websocket', 'polling'] 
 });
-// ---------------------------------------------
 
 const userColors = ['#ff6b9d', '#4ecdc4', '#45b7d1', '#96ceb4', '#ff8a5c', '#6a7dff'];
 
@@ -72,7 +69,6 @@ io.on('connection', (socket) => {
     const { roomId } = socket.data;
     if(roomId) {
         await roomsCollection.updateOne({ _id: roomId }, { $set: { files: newFileStructure } });
-        // Use io.in to broadcast to everyone, ensuring perfect sync
         io.in(roomId).emit('updateFiles', newFileStructure);
     }
   });
@@ -93,6 +89,23 @@ io.on('connection', (socket) => {
       const safeFilePath = filePath.replace(/\./g, '_');
       const code = room?.code?.[safeFilePath] || `// Welcome to ${filePath}\n`;
       socket.emit('codeUpdate', { filePath, newCode: code });
+    }
+  });
+
+  socket.on('deleteFile', async (filePath) => {
+    const { roomId } = socket.data;
+    if (roomId) {
+      const safeFilePath = filePath.replace(/\./g, '_');
+      await roomsCollection.updateOne({ _id: roomId }, { $unset: { [`code.${safeFilePath}`]: "" } });
+    }
+  });
+
+  socket.on('renameFile', async ({ oldPath, newPath }) => {
+    const { roomId } = socket.data;
+    if (roomId) {
+      const safeOldPath = oldPath.replace(/\./g, '_');
+      const safeNewPath = newPath.replace(/\./g, '_');
+      await roomsCollection.updateOne({ _id: roomId }, { $rename: { [`code.${safeOldPath}`]: `code.${safeNewPath}` } });
     }
   });
   
@@ -131,8 +144,40 @@ io.on('connection', (socket) => {
         console.log = originalLog;
         io.in(roomId).emit('terminalUpdate', { type: 'error', content: error.message, filePath });
       }
+    } else if (lang === 'java') {
+        const classNameMatch = code.match(/public\s+class\s+([a-zA-Z0-9_]+)/);
+        if (!classNameMatch) {
+            io.in(roomId).emit('terminalUpdate', { type: 'error', content: "Error: No public class found.", filePath });
+            return;
+        }
+        const className = classNameMatch[1];
+        const fileName = `${className}.java`;
+        
+        const tempDir = path.join(__dirname, 'temp', uuidv4());
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        const filePathJava = path.join(tempDir, fileName);
+
+        fs.writeFileSync(filePathJava, code);
+
+        exec(`javac ${filePathJava}`, (compileError, stdout, stderr) => {
+            if (compileError || stderr) {
+                io.in(roomId).emit('terminalUpdate', { type: 'error', content: stderr || compileError.message, filePath });
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                return;
+            }
+
+            exec(`java -cp ${tempDir} ${className}`, (runError, stdout, stderr) => {
+                if (runError || stderr) {
+                    io.in(roomId).emit('terminalUpdate', { type: 'error', content: stderr || runError.message, filePath });
+                } else {
+                    io.in(roomId).emit('terminalUpdate', { type: 'output', content: stdout, filePath });
+                }
+                fs.rmSync(tempDir, { recursive: true, force: true });
+            });
+        });
+
     } else {
-      io.in(roomId).emit('terminalUpdate', { type: 'output', content: `Execution for "${language}" is not supported on this server.`, filePath });
+      io.in(roomId).emit('terminalUpdate', { type: 'output', content: `Execution for "${language}" is not supported.`, filePath });
     }
   });
 
